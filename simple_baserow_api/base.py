@@ -56,6 +56,9 @@ class BaserowApi:
 
     table_path = "api/database/rows/table"
     fields_path = "api/database/fields/table"
+    jwt_auth_path = "api/user/token-auth"
+    create_table_path = "api/database/tables/database"
+    create_field_path = "api/database/fields/table"
 
     def __init__(self, database_url: str, token=None, token_path=None):
         self._database_url = database_url
@@ -64,6 +67,7 @@ class BaserowApi:
         elif token:
             self._token = token
         self._fields: dict[int, Any] = {}
+        self._jwt: Optional[str] = None
 
     def _get_fields(self, table_id: int) -> str:
         """Get fields for a table.
@@ -293,6 +297,10 @@ class BaserowApi:
                     data_conv[field["name"]] = new_value
         return data_conv
 
+    def _check_jwt(self):
+        if not self._jwt:
+            raise RuntimeError("This API endpoint requires JWT authentication. Use get_jwt() to first create a JWT.")
+
     def get_fields(self, table_id: int) -> list[dict]:
         """Get all fields in a table.
         Fields are cached in the _fields attribute.
@@ -499,3 +507,49 @@ class BaserowApi:
             raise RuntimeError(errors)
         else:
             return touched_ids, errors
+
+    def get_jwt(self, user: str, passwd: str) -> None:
+        """
+        See https://baserow.io/docs/apis%2Frest-api.
+        This token is only available for 60 minutes.
+        """
+        resp = requests.post(f"{self._database_url}/{self.jwt_auth_path}/", data={
+            'username': user,
+            'password': passwd
+        })
+        resp.raise_for_status()
+        data = resp.json()
+        
+        try:
+            self._jwt = data['access_token']
+        except KeyError:
+            raise RuntimeError("Response did not contain a JWT.")
+
+    def create_table(self, database_id: int, table_name: str,
+                     fields: Optional[list[dict[str, str]]] = None) -> int:
+        """
+        See https://api.baserow.io/api/redoc/#tag/Database-tables/operation/create_database_table
+        """
+        self._check_jwt()
+
+        resp = requests.post(f"{self._database_url}/{self.create_table_path}/{database_id}/",
+                             data={"name": table_name},
+                             headers={"Authorization": f"JWT {self._jwt}"})
+        resp.raise_for_status()
+        create_resp_data = resp.json()
+
+        try:
+            tab_id = create_resp_data["id"]
+        except KeyError:
+            raise RuntimeError("No table ID in response.")
+
+        if fields:
+            # see https://api.baserow.io/api/redoc/#tag/Database-table-fields/operation/create_database_table_field
+            for field_spec in fields:
+                resp = requests.post(f"{self._database_url}/{self.create_field_path}/{tab_id}/",
+                                    data=field_spec,
+                                    headers={"Authorization": f"JWT {self._jwt}"})
+                resp.raise_for_status()
+
+        return tab_id
+    
