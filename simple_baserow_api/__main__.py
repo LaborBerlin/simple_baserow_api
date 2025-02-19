@@ -20,14 +20,18 @@ if __name__ == "__main__":  # pragma: no cover
     create_table_args.add_argument('--fail_on_error', action='store_true',
                                    help='Fail if error appears.')
 
-    insert_rows_args = subargs.add_parser('add_data',
-                                          help='Add/Change data for a table. Rows are read from stdin as JSON data like'
-                                               ' obtained from get_data')
-    insert_rows_args.add_argument('table_id', type=int)
-    insert_rows_args.add_argument('--field_ids', action='store_true',
-                                  help='Use field IDs instead of user field names.')
-    insert_rows_args.add_argument('--fail_on_error', action='store_true',
-                                  help='Fail if error appears.')
+    add_data_args = subargs.add_parser('add_data',
+                                       help='Add/Change data for a table. Rows are read from stdin as JSON data like '
+                                            'obtained from get_data')
+    add_data_args.add_argument('table_id', type=int)
+    add_data_args.add_argument('--field_ids', action='store_true',
+                               help='Use field IDs instead of user field names.')
+    add_data_args.add_argument('--force_insert', action='store_true',
+                               help="Always insert and don't update entries.")
+    add_data_args.add_argument('--limit', type=int,
+                               help="Add only the first n rows.")
+    add_data_args.add_argument('--fail_on_error', action='store_true',
+                               help='Fail if error appears.')
 
     get_fields_args = subargs.add_parser('get_fields')
     get_fields_args.add_argument('table_id', type=int)

@@ -37,13 +37,36 @@ class Commands:
     def add_data(cls, args):
         data = json.load(sys.stdin)
 
+        readonly_fields = [f['name'] for f in cls.api.get_fields(args.table_id)
+                           if f['read_only'] and f['type'] != 'formula']
+
         if isinstance(data, dict) and 'results' in data.keys():
             data = data['results']
         else:
             data = list(data.values())
 
-        cls.api.add_data_batch(args.table_id, data,
+        entries = []
+        for i, row in enumerate(data):
+            entry = {}
+            for k, v in row.items():
+                if k == 'order' or k in readonly_fields:
+                    continue
+                if isinstance(v, dict):
+                    if 'value' in v.keys():
+                        entry[k] = v['value']
+                elif isinstance(v, list):
+                    entry[k] = ', '.join(listitem['value'].replace(',', '\\,') for listitem in v
+                                         if 'value' in listitem.keys())
+                else:
+                    entry[k] = v
+            entries.append(entry)
+
+            if args.limit and i >= args.limit - 1:
+                break
+
+        cls.api.add_data_batch(args.table_id, entries,
                                user_field_names=not args.field_ids,
+                               force_insert=args.force_insert,
                                fail_on_error=args.fail_on_error)
 
     @classmethod

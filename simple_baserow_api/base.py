@@ -463,6 +463,7 @@ class BaserowApi:
         table_id: int,
         entries: list[dict],
         user_field_names: bool = True,
+        force_insert: bool = False,
         fail_on_error: bool = False,
     ) -> tuple[list, list]:
         """Add/Change data (multiple rows) to a table.
@@ -479,11 +480,15 @@ class BaserowApi:
 
         entries_update = []
         entries_new = []
-        for entry in entries:
-            if entry.get("id") is not None:
-                entries_update.append(entry)
-            else:
-                entries_new.append(entry)
+
+        if force_insert:
+            entries_new = entries
+        else:
+            for entry in entries:
+                if entry.get("id") is not None:
+                    entries_update.append(entry)
+                else:
+                    entries_new.append(entry)
 
         errors = []
         touched_ids = []
