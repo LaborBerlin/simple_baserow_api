@@ -24,9 +24,8 @@ class Commands:
         fail_if_missing_arg('user', cls.user)
         fail_if_missing_arg('password', cls.passwd)
 
-        if args.fields_schema:
-            with open(args.fields_schema) as f:
-                fields = json.load(f)
+        if args.create_fields:
+            fields = json.load(sys.stdin)
         else:
             fields = None
 
@@ -36,10 +35,14 @@ class Commands:
 
     @classmethod
     def add_data(cls, args):
-        with open(args.data) as f:
-            data = json.load(f)
+        data = json.load(sys.stdin)
 
-        cls.api.add_data_batch(args.table_id, list(data.values()),
+        if isinstance(data, dict) and 'results' in data.keys():
+            data = data['results']
+        else:
+            data = list(data.values())
+
+        cls.api.add_data_batch(args.table_id, data,
                                user_field_names=not args.field_ids,
                                fail_on_error=args.fail_on_error)
 

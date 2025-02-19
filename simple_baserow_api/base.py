@@ -527,7 +527,8 @@ class BaserowApi:
             raise RuntimeError("Response did not contain a JWT.")
 
     def create_table(self, database_id: int, table_name: str,
-                     fields: Optional[list[dict[str, str]]] = None) -> int:
+                     fields: Optional[list[dict[str, str]]] = None,
+                     fail_on_error: bool = False) -> int:
         """
         See https://api.baserow.io/api/redoc/#tag/Database-tables/operation/create_database_table
         """
@@ -549,11 +550,14 @@ class BaserowApi:
 
         if fields:
             # see https://api.baserow.io/api/redoc/#tag/Database-table-fields/operation/create_database_table_field
-            for field_spec in fields:
+            nonformula_fields = [f for f in fields if f['type'] != 'formula']
+            formula_fields = [f for f in fields if f['type'] == 'formula']
+            for field_spec in nonformula_fields + formula_fields:
                 resp = requests.post(f"{self._database_url}/{self.create_field_path}/{tab_id}/",
                                      data=field_spec,
                                      headers={"Authorization": f"JWT {self._jwt}"})
-                resp.raise_for_status()
+                if fail_on_error:
+                    resp.raise_for_status()
 
                 if field_spec.get('primary', False):
                     new_primary_field_id = field_spec['id']
