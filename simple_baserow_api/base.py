@@ -59,6 +59,7 @@ class BaserowApi:
     jwt_auth_path = "api/user/token-auth"
     create_table_path = "api/database/tables/database"
     create_field_path = "api/database/fields/table"
+    delete_field_path = "api/database/fields"
 
     def __init__(self, database_url: str, token=None, token_path=None):
         self._database_url = database_url
@@ -542,14 +543,39 @@ class BaserowApi:
             tab_id = create_resp_data["id"]
         except KeyError:
             raise RuntimeError("No table ID in response.")
+        
+        created_default_fields = self.get_fields(tab_id)
+        new_primary_field_id = None
 
         if fields:
             # see https://api.baserow.io/api/redoc/#tag/Database-table-fields/operation/create_database_table_field
             for field_spec in fields:
                 resp = requests.post(f"{self._database_url}/{self.create_field_path}/{tab_id}/",
-                                    data=field_spec,
-                                    headers={"Authorization": f"JWT {self._jwt}"})
+                                     data=field_spec,
+                                     headers={"Authorization": f"JWT {self._jwt}"})
                 resp.raise_for_status()
+
+                if field_spec.get('primary', False):
+                    new_primary_field_id = field_spec['id']
+            
+            # try to change the primary field as it is defined in `fields`
+            if new_primary_field_id:
+                resp = requests.post(f"{self._database_url}/{self.create_field_path}/{tab_id}/change-primary-field/",
+                                     data={"new_primary_field_id": new_primary_field_id},
+                                     headers={"Authorization": f"JWT {self._jwt}"})
+                if not resp.ok:
+                    new_primary_field_id = None
+            
+            # invalidate cache
+            del self._fields[tab_id]
+            
+        # for reasons unknown, BaseRow likes to create some unnecessary default fields; we will remove them here
+        for field_spec in created_default_fields:
+            if field_spec.get('primary', False) and new_primary_field_id is None:  # don't try to remove the default PK if no new PK was set
+                continue
+            resp = requests.delete(f"{self._database_url}/{self.delete_field_path}/{field_spec['id']}/",
+                                   headers={"Authorization": f"JWT {self._jwt}"})
+            resp.raise_for_status()
 
         return tab_id
     
