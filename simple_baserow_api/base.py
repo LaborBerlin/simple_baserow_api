@@ -558,7 +558,8 @@ class BaserowApi:
                 if field_spec.get('primary', False):
                     new_primary_field_id = field_spec['id']
             
-            # try to change the primary field as it is defined in `fields`
+            # try to change the primary field as it is defined in `fields`; this currently fails on our server; maybe
+            # our baserow version doesn't support that API endpoint
             if new_primary_field_id:
                 resp = requests.post(f"{self._database_url}/{self.create_field_path}/{tab_id}/change-primary-field/",
                                      data={"new_primary_field_id": new_primary_field_id},
@@ -576,6 +577,11 @@ class BaserowApi:
             resp = requests.delete(f"{self._database_url}/{self.delete_field_path}/{field_spec['id']}/",
                                    headers={"Authorization": f"JWT {self._jwt}"})
             resp.raise_for_status()
+
+        # for reasons unknown, BaseRow also likes to create some unnecessary empty rows; we will remove them here
+        rows = self.get_data(tab_id)
+        for row_id in rows.keys():
+            self._delete_row(tab_id, row_id)
 
         return tab_id
     

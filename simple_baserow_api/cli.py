@@ -4,7 +4,6 @@
 import os
 import sys
 import json
-from dataclasses import fields
 
 from simple_baserow_api import BaserowApi
 
@@ -32,7 +31,29 @@ class Commands:
             fields = None
 
         cls.api.get_jwt(cls.user, cls.passwd)
-        cls.api.create_table(args.database_id, args.table_name, fields)
+        tab_id = cls.api.create_table(args.database_id, args.table_name, fields)
+        print(f'created table with ID {tab_id}')
+
+    @classmethod
+    def add_data(cls, args):
+        with open(args.data) as f:
+            data = json.load(f)
+
+        cls.api.add_data_batch(args.table_id, list(data.values()),
+                               user_field_names=not args.field_ids,
+                               fail_on_error=args.fail_on_error)
+
+    @classmethod
+    def get_fields(cls, args):
+        fields = cls.api.get_fields(args.table_id)
+        print(json.dumps(fields, indent=args.json_indent))
+
+    @classmethod
+    def get_data(cls, args):
+        rows = cls.api.get_data(args.table_id,
+                                writable_only=not args.include_non_writable_fields,
+                                user_field_names=not args.field_ids)
+        print(json.dumps(rows, indent=args.json_indent))
 
 
 def main(args):
