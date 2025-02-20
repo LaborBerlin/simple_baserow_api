@@ -46,4 +46,8 @@ if __name__ == "__main__":  # pragma: no cover
                                help='Return field IDs instead of user field names.')
     get_data_args.add_argument('--json_indent', type=int)
 
+    json_to_csv_args = subargs.add_parser('json_to_csv',
+                                          help="Transform JSON data as retrieved via get_data and read via stdin to "
+                                               "CSV printed to stderr.")
+
     main(args.parse_args())
